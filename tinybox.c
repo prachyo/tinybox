@@ -10,12 +10,16 @@
 #include <elf.h>
 #include <sys/wait.h>
 
+#include "policy.h"
+
 int main(int argc, char *argv[]) {
 
     if (argc < 2) {
         fprintf(stderr,"Usage: %s <file>\n", argv[0]);
         exit(1);
     }
+
+    init_allowlist();
 
     pid_t pid = fork();
     if (pid == 0) {
@@ -54,7 +58,29 @@ int main(int argc, char *argv[]) {
                         perror("ptrace(GETREGSET)");
                         break;
                     }
-                    printf("tinybox: Syscall %llu\n", regs.orig_rax);
+
+                    long long syscall_id = regs.orig_rax;
+                    int allowed = 0;
+
+                    if (syscall_id < MAX_SYSCALL && allow_list[syscall_id]) {
+                        allowed = 1;
+                    }
+
+                    static int exec_count = 0;
+                    if (syscall_id == SYS_execve && exec_count == 0) {
+                        allowed = 1;
+                        exec_count++;
+                    }
+
+                    if (!allowed) {
+                        printf("tinybox: Blocked syscall %lld\n", syscall_id);
+
+                        regs.orig_rax = -1;
+                        if (ptrace(PTRACE_SETREGSET, pid, (void*)NT_PRSTATUS, &iov) < 0) {
+                            perror("ptrace(SETREGSET)");
+                            break;
+                        }
+                    }
 
                     on_enter = 0;
                 } else {
