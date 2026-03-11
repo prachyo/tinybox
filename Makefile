@@ -1,28 +1,31 @@
-# Compiler and flags
 CC = gcc
-CFLAGS = -Wall -Wextra -O2
-
-# Target executable name
+CFLAGS = -Wall -Wextra -g
+SRCS = tinybox.c policy.c helpers.c
 TARGET = tinybox
 
-# Source files
-SRCS = tinybox.c
-OBJS = $(SRCS:.c=.o)
+TEST_DIR = tests
+TEST_SRCS = $(wildcard $(TEST_DIR)/*.c)
+TEST_BINS = $(TEST_SRCS:$(TEST_DIR)/%.c=$(TEST_DIR)/%)
 
-# Default rule: build the project
-all: $(TARGET)
+all: $(TARGET) $(TEST_BINS)
 
-# Link the object files to create the executable
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+$(TARGET): $(SRCS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(SRCS)
 
-# Compile source files into object files
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+$(TEST_DIR)/%: $(TEST_DIR)/%.c
+	$(CC) $(CFLAGS) -o $@ $<
 
-# Clean rule: remove build artifacts
+test: all
+	@echo "Starting Tinybox Test Suite..."
+	@for test_bin in $(TEST_BINS); do \
+		echo "--------------------------------------"; \
+		echo "Running: $$test_bin"; \
+		./$(TARGET) ./$$test_bin; \
+	done
+	@echo "--------------------------------------"
+	@echo "Tests Completed."
+
 clean:
-	rm -f $(TARGET) $(OBJS)
+	rm -f $(TARGET) $(TEST_BINS)
 
-# Phony targets (targets that aren't actual files)
-.PHONY: all clean
+.PHONY: all test clean

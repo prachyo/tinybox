@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    init_allowlist();
+    init_policy();
 
     pid_t pid = fork();
     if (pid == 0) {
@@ -60,10 +60,12 @@ int main(int argc, char *argv[]) {
                     }
 
                     long long syscall_id = regs.orig_rax;
-                    int allowed = 0;
+                    int allowed = 1;
 
-                    if (syscall_id < MAX_SYSCALL && allow_list[syscall_id]) {
-                        allowed = 1;
+                    if (syscall_id < MAX_SYSCALL && dispatch_table[syscall_id] != NULL) {
+                        allowed = dispatch_table[syscall_id](pid, &regs);
+                    } else if (!is_on_allowlist(syscall_id)) {
+                        allowed = 0;
                     }
 
                     static int exec_count = 0;
