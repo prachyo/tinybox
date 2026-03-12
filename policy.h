@@ -1,6 +1,7 @@
 #ifndef POLICY_H
 #define POLICY_H
 
+#include <sys/user.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <stdlib.h>

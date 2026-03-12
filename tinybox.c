@@ -9,6 +9,7 @@
 #include <sys/uio.h>
 #include <elf.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 #include "policy.h"
 
@@ -41,6 +42,7 @@ int main(int argc, char *argv[]) {
         printf("tinybox: Monitoring started for PID %d\n", pid);
 
         int on_enter = 1;
+        int is_blocked = 0;
 
         while(1) {
             ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
@@ -49,16 +51,12 @@ int main(int argc, char *argv[]) {
             if (WIFEXITED(status) || WIFSIGNALED(status)) break;
 
             if (WSTOPSIG(status) == (SIGTRAP | 0x80)) {
-                if (on_enter) {
-                    struct user_regs_struct regs;
-                    struct iovec iov;
-                    iov.iov_base = &regs;
-                    iov.iov_len = sizeof(regs);
-                    if (ptrace(PTRACE_GETREGSET, pid, (void*)NT_PRSTATUS, &iov) < 0) {
-                        perror("ptrace(GETREGSET)");
-                        break;
-                    }
+                struct user_regs_struct regs;
+                struct iovec iov = { .iov_base = &regs, .iov_len = sizeof(regs) };
 
+                if (ptrace(PTRACE_GETREGSET, pid, (void*)NT_PRSTATUS, &iov) < 0) break;
+
+                if (on_enter) {
                     long long syscall_id = regs.orig_rax;
                     int allowed = 0;
 
@@ -75,23 +73,23 @@ int main(int argc, char *argv[]) {
                     }
 
                     if (!allowed) {
-                        const char *name = "unknown";
-
-                        if (syscall_id >= 0 && syscall_id < MAX_SYSCALL && syscall_policy[syscall_id].name != NULL) {
-                            name = syscall_policy[syscall_id].name;
-                        }
+                        const char *name = (syscall_id >= 0 && syscall_id < MAX_SYSCALL && syscall_policy[syscall_id].name)
+                                                                   ? syscall_policy[syscall_id].name : "forbidden";
 
                         printf("tinybox: [BLOCK] %s (ID: %lld)\n", name, syscall_id);
 
-                        regs.orig_rax = -1;
-                        if (ptrace(PTRACE_SETREGSET, pid, (void*)NT_PRSTATUS, &iov) < 0) {
-                            perror("ptrace(SETREGSET)");
-                            break;
-                        }
+                        regs.orig_rax = SYS_getpid;
+                        ptrace(PTRACE_SETREGSET, pid, (void*)NT_PRSTATUS, &iov);
+                        is_blocked = 1;
                     }
 
                     on_enter = 0;
                 } else {
+                    if (is_blocked) {
+                        regs.rax = -EACCES;
+                        ptrace(PTRACE_SETREGSET, pid, (void*)NT_PRSTATUS, &iov);
+                        is_blocked = 0;
+                    }
                     on_enter = 1;
                 }
             }
