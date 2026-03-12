@@ -60,12 +60,12 @@ int main(int argc, char *argv[]) {
                     }
 
                     long long syscall_id = regs.orig_rax;
-                    int allowed = 1;
+                    int allowed = 0;
 
                     if (syscall_id < MAX_SYSCALL && dispatch_table[syscall_id] != NULL) {
-                        allowed = dispatch_table[syscall_id](pid, &regs);
-                    } else if (!is_on_allowlist(syscall_id)) {
-                        allowed = 0;
+                        allowed = (dispatch_table[syscall_id](pid, &regs) == 0);
+                    } else {
+                        allowed = is_on_allowlist(syscall_id);
                     }
 
                     static int exec_count = 0;
@@ -75,7 +75,13 @@ int main(int argc, char *argv[]) {
                     }
 
                     if (!allowed) {
-                        printf("tinybox: Blocked syscall %lld\n", syscall_id);
+                        const char *name = "unknown";
+
+                        if (syscall_id >= 0 && syscall_id < MAX_SYSCALL && syscall_policy[syscall_id].name != NULL) {
+                            name = syscall_policy[syscall_id].name;
+                        }
+
+                        printf("tinybox: [BLOCK] %s (ID: %lld)\n", name, syscall_id);
 
                         regs.orig_rax = -1;
                         if (ptrace(PTRACE_SETREGSET, pid, (void*)NT_PRSTATUS, &iov) < 0) {

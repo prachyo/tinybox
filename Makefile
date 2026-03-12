@@ -16,14 +16,7 @@ $(TEST_DIR)/%: $(TEST_DIR)/%.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 test: all
-	@echo "Starting Tinybox Test Suite..."
-	@for test_bin in $(TEST_BINS); do \
-		echo "--------------------------------------"; \
-		echo "Running: $$test_bin"; \
-		./$(TARGET) ./$$test_bin; \
-	done
-	@echo "--------------------------------------"
-	@echo "Tests Completed."
+	@python3 tests/run_tests.py
 
 clean:
 	rm -f $(TARGET) $(TEST_BINS)
