@@ -16,11 +16,31 @@
 #include "helpers.h"
 
 int main(int argc, char *argv[]) {
+    int opt;
+    int time_limit_s = 10;
+    int mem_limit_mb = 64;
 
-    if (argc < 2) {
-        fprintf(stderr,"Usage: %s <file>\n", argv[0]);
+    while ((opt = getopt(argc, argv, "t:m:")) != -1) {
+        switch (opt) {
+            case 't':
+                time_limit_s = atoi(optarg);
+                break;
+            case 'm':
+                mem_limit_mb = atoi(optarg);
+                break;
+            default:
+                fprintf(stderr, "Usage: %s [-t time_s] [-m mem_mb] <program> [args...]\n", argv[0]);
+                exit(1);
+        }
+    }
+
+    if (optind >= argc) {
+        fprintf(stderr, "Expected program names\n");
         exit(1);
     }
+
+    char *target_prog = argv[optind];
+    char **target_args = &argv[optind];
 
     init_policy();
 
@@ -29,18 +49,18 @@ int main(int argc, char *argv[]) {
         // CHILD PROCESS
 
         struct rlimit mem_limit;
-        mem_limit.rlim_cur = 64 * 1024 * 1024; // 64mb mem limit
-        mem_limit.rlim_max = 64 * 1024 * 1024;
+        mem_limit.rlim_cur = mem_limit_mb * 1024 * 1024; // 64mb mem limit
+        mem_limit.rlim_max = mem_limit_mb * 1024 * 1024;
         setrlimit(RLIMIT_AS, &mem_limit);
 
         struct rlimit cpu_limit;
-        cpu_limit.rlim_cur = 10;
-        cpu_limit.rlim_max = 10;
+        cpu_limit.rlim_cur = time_limit_s;
+        cpu_limit.rlim_max = time_limit_s;
         setrlimit(RLIMIT_CPU, &cpu_limit);
 
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         raise(SIGSTOP);
-        execvp(argv[1], &argv[1]);
+        execvp(target_prog, target_args);
         exit(1);
 
     } else {
@@ -56,7 +76,7 @@ int main(int argc, char *argv[]) {
         int is_blocked = 0;
 
         signal(SIGALRM, TLE_handler);
-        alarm(10);
+        alarm(time_limit_s + 1);
 
         while(1) {
             ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
