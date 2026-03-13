@@ -1,6 +1,8 @@
 #define _GNU_SOURCE
 #include "helpers.h"
 #include <sys/uio.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 ssize_t read_child_string(pid_t child, unsigned long addr, char *dest, size_t len) {
     struct iovec local[1];
@@ -20,4 +22,16 @@ ssize_t read_child_string(pid_t child, unsigned long addr, char *dest, size_t le
     }
 
     return nread;
+}
+
+void TLE_handler(int sig) {
+    (void) sig;
+    fprintf(stderr, "tinybox: [TLE] Time Limit Exceeded\n");
+    exit(137);
+}
+
+void MLE_handler(int sig) {
+    (void) sig;
+    fprintf(stderr, "tinybox: [MLE] Memory Limit Exceeded\n");
+    exit(139);
 }

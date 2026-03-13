@@ -13,6 +13,7 @@
 #include <sys/resource.h>
 
 #include "policy.h"
+#include "helpers.h"
 
 int main(int argc, char *argv[]) {
 
@@ -54,9 +55,26 @@ int main(int argc, char *argv[]) {
         int on_enter = 1;
         int is_blocked = 0;
 
+        signal(SIGALRM, TLE_handler);
+        alarm(10);
+
         while(1) {
             ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
             waitpid(pid, &status, 0);
+
+            if (WIFEXITED(status)) {
+                printf("tinybox: [EXIT] process finished execution (Exit: %d)\n", WEXITSTATUS(status));
+                break;
+            }
+
+            if (WIFSIGNALED(status)) {
+                int sig = WTERMSIG(status);
+                if (sig == SIGXCPU) TLE_handler(sig);
+                else if (sig == SIGSEGV || sig == SIGABRT) MLE_handler(sig);
+                else printf("tinybox: [TERM] process killed by signal %d\n", sig);
+                break;
+
+            }
 
             if (WIFEXITED(status) || WIFSIGNALED(status)) break;
 

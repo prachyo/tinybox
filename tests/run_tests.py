@@ -10,6 +10,7 @@ tests = [
     ("tests/basic_good", "Should allow relative file access"),
     ("tests/basic_bad", "Should block absolute /etc/passwd access"),
     ("tests/infinite_loop", "Should block infinite loop"),
+    ("tests/overly_large_mem", "Should block overly large memory allocation"),
 ]
 
 passed = 0

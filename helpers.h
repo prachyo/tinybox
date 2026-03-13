@@ -5,5 +5,7 @@
 #include <unistd.h>
 
 ssize_t read_child_string(pid_t child, unsigned long addr, char *dest, size_t len);
+void TLE_handler(int sig);
+void MLE_handler(int sig);
 
 #endif
