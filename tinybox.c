@@ -10,6 +10,7 @@
 #include <elf.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <sys/resource.h>
 
 #include "policy.h"
 
@@ -25,11 +26,20 @@ int main(int argc, char *argv[]) {
     pid_t pid = fork();
     if (pid == 0) {
         // CHILD PROCESS
+
+        struct rlimit mem_limit;
+        mem_limit.rlim_cur = 64 * 1024 * 1024; // 64mb mem limit
+        mem_limit.rlim_max = 64 * 1024 * 1024;
+        setrlimit(RLIMIT_AS, &mem_limit);
+
+        struct rlimit cpu_limit;
+        cpu_limit.rlim_cur = 10;
+        cpu_limit.rlim_max = 10;
+        setrlimit(RLIMIT_CPU, &cpu_limit);
+
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         raise(SIGSTOP);
         execvp(argv[1], &argv[1]);
-
-        perror("execvp");
         exit(1);
 
     } else {
